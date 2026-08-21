@@ -1,0 +1,7 @@
+# Obvious repo policy — becca-weiss/claude-desktop-buddy
+version: 1
+defaultBranch: main
+# GitHub enables merge, squash, and rebase on this repo; squash preferred for
+# setup/agent PRs to keep history clean.
+mergeMethod: squash
+deleteBranchOnMerge: false
