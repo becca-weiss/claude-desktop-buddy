@@ -7,7 +7,14 @@
 // used by the headers under test (src/stats.h) are provided; the real
 // Arduino core and ESP32 libraries are never pulled in.
 
-inline unsigned long millis() { return 0; }
+// Fake clock: stats.h's energy logic divides by millis(), so tests need to
+// advance time. Default stays 0 to match a fresh boot.
+inline unsigned long& _fakeMillis() {
+  static unsigned long t = 0;
+  return t;
+}
+inline unsigned long millis() { return _fakeMillis(); }
+inline void setFakeMillis(unsigned long ms) { _fakeMillis() = ms; }
 
 // Arduino's min() is a macro; a template keeps it type-safe natively.
 template <typename T, typename U>
