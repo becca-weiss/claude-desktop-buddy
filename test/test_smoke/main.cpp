@@ -14,6 +14,9 @@ static void resetStatsState() {
   _tokensSynced = false;
   _levelUpPending = false;
   _dirty = false;
+  _lastNapEndMs = 0;
+  _energyAtNap = 3;
+  setFakeMillis(0);
 }
 
 void setUp() { resetStatsState(); }
@@ -74,7 +77,64 @@ void test_bridge_tokens_level_up_at_threshold(void) {
   TEST_ASSERT_FALSE(statsPollLevelUp());  // level-up is consumed once
 }
 
-// --- mood / fed progress ----------------------------------------------------
+// --- denial / nap accounting -------------------------------------------------
+
+void test_denial_increments_denial_count(void) {
+  statsOnDenial();
+  statsOnDenial();
+  TEST_ASSERT_EQUAL_UINT16(2, _stats.denials);
+}
+
+void test_nap_end_accumulates_seconds(void) {
+  statsOnNapEnd(120);
+  statsOnNapEnd(30);
+  TEST_ASSERT_EQUAL_UINT32(150, _stats.napSeconds);
+}
+
+// --- fed progress boundaries --------------------------------------------------
+
+void test_fed_progress_zero_at_exact_level_boundary(void) {
+  statsOnBridgeTokens(0);
+  statsOnBridgeTokens(50000);   // exactly one level: no leftover pips
+  TEST_ASSERT_EQUAL_UINT8(0, statsFedProgress());
+}
+
+void test_fed_progress_first_pip_within_level(void) {
+  statsOnBridgeTokens(0);
+  statsOnBridgeTokens(5000);    // 5K of 50K → 1 of 10 pips
+  TEST_ASSERT_EQUAL_UINT8(1, statsFedProgress());
+}
+
+void test_fed_progress_nine_pips_just_under_level(void) {
+  statsOnBridgeTokens(0);
+  statsOnBridgeTokens(49999);   // 1 short of the boundary → last pip
+  TEST_ASSERT_EQUAL_UINT8(9, statsFedProgress());
+}
+
+// --- energy tier (uses the stub's settable fake clock) -----------------------
+
+void test_energy_tier_full_after_wake(void) {
+  statsOnWake();
+  TEST_ASSERT_EQUAL_UINT8(5, statsEnergyTier());
+}
+
+void test_energy_tier_drains_with_elapsed_hours(void) {
+  statsOnWake();
+  setFakeMillis(4 * 3600000UL);  // 4h awake → 2 tiers drained (1 per 2h)
+  TEST_ASSERT_EQUAL_UINT8(3, statsEnergyTier());
+}
+
+void test_energy_tier_clamped_to_zero(void) {
+  statsOnWake();
+  setFakeMillis(100 * 3600000UL);  // far beyond full drain
+  TEST_ASSERT_EQUAL_UINT8(0, statsEnergyTier());
+}
+
+void test_energy_tier_clamped_to_five_before_wake(void) {
+  // Static init is 3; nothing should push it above 5.
+  setFakeMillis(0);
+  TEST_ASSERT_EQUAL_UINT8(3, statsEnergyTier());
+}
 
 void test_fed_progress_pips(void) {
   TEST_ASSERT_EQUAL_UINT8(0, statsFedProgress());
@@ -109,6 +169,15 @@ int main() {
   RUN_TEST(test_bridge_tokens_deltas_accumulate);
   RUN_TEST(test_bridge_tokens_restart_does_not_credit);
   RUN_TEST(test_bridge_tokens_level_up_at_threshold);
+  RUN_TEST(test_denial_increments_denial_count);
+  RUN_TEST(test_nap_end_accumulates_seconds);
+  RUN_TEST(test_fed_progress_zero_at_exact_level_boundary);
+  RUN_TEST(test_fed_progress_first_pip_within_level);
+  RUN_TEST(test_fed_progress_nine_pips_just_under_level);
+  RUN_TEST(test_energy_tier_full_after_wake);
+  RUN_TEST(test_energy_tier_drains_with_elapsed_hours);
+  RUN_TEST(test_energy_tier_clamped_to_zero);
+  RUN_TEST(test_energy_tier_clamped_to_five_before_wake);
   RUN_TEST(test_fed_progress_pips);
   RUN_TEST(test_mood_tier_no_data_is_neutral);
   RUN_TEST(test_mood_tier_follows_velocity);
