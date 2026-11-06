@@ -111,6 +111,13 @@ void test_fed_progress_nine_pips_just_under_level(void) {
   TEST_ASSERT_EQUAL_UINT8(9, statsFedProgress());
 }
 
+void test_fed_progress_pips_wrap_after_multiple_levels(void) {
+  statsOnBridgeTokens(0);
+  statsOnBridgeTokens(2 * 50000 + 25000);  // 2 full levels + 25K → 5 pips
+  TEST_ASSERT_EQUAL_UINT8(2, _stats.level);
+  TEST_ASSERT_EQUAL_UINT8(5, statsFedProgress());
+}
+
 // --- energy tier (uses the stub's settable fake clock) -----------------------
 
 void test_energy_tier_full_after_wake(void) {
@@ -174,6 +181,7 @@ int main() {
   RUN_TEST(test_fed_progress_zero_at_exact_level_boundary);
   RUN_TEST(test_fed_progress_first_pip_within_level);
   RUN_TEST(test_fed_progress_nine_pips_just_under_level);
+  RUN_TEST(test_fed_progress_pips_wrap_after_multiple_levels);
   RUN_TEST(test_energy_tier_full_after_wake);
   RUN_TEST(test_energy_tier_drains_with_elapsed_hours);
   RUN_TEST(test_energy_tier_clamped_to_zero);
